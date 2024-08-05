@@ -1,0 +1,248 @@
+#include <Adafruit_GFX.h>    // Core graphics library
+#include <Adafruit_ST7735.h> // Hardware-specific library
+#include <SPI.h>
+
+const int butonpin2 = 3; // solüst
+const int butonpin = 2;  // solalt
+const int ledPin = 7;
+const int butonpin3 = 4; // sağalt
+const int butonpin4 = 5; // sağüst
+const int butonpin5 = 6; // menüpini
+
+int count = 0;
+unsigned long lastDebounceTime = 0;  // The last time the output pin was toggled
+unsigned long debounceDelay = 50;    // The debounce time; increase if the output flickers
+
+bool lastButtonState = LOW;
+bool buttonState = LOW;
+bool reading;                        // Current button reading
+
+#define TFT_CS 10
+#define TFT_RST 8 // you can also connect this to the Arduino reset
+#define TFT_DC 9
+Adafruit_ST7735 tft = Adafruit_ST7735(TFT_CS, TFT_DC, TFT_RST);
+
+void setup() {
+    pinMode(ledPin, OUTPUT);
+    pinMode(butonpin, INPUT);
+    pinMode(butonpin2, INPUT);
+    pinMode(butonpin3, INPUT);
+    pinMode(butonpin4, INPUT);
+    pinMode(butonpin5, INPUT);
+
+    Serial.begin(9600);
+    Serial.println("Hello! ST7735 TFT Test");
+
+    tft.initR(INITR_BLACKTAB); // initialize a ST7735S chip, black tab
+
+    Ekran();
+}
+
+void loop() {
+    int durum2 = digitalRead(butonpin2);
+    int durum3 = digitalRead(butonpin3);
+    int durum4 = digitalRead(butonpin4);
+    int durum = digitalRead(butonpin);
+
+    bool control = guvenlikkontrol();
+
+    Serial.print("guvenlikkontrol() = ");
+    Serial.println(control); // Debugging: Print control value
+
+    if (durum2 == HIGH && !control) {
+        processMenu();
+    }
+    if (!control && durum == HIGH) {
+        process_buton_sol_alt();
+    }
+    if (!control && durum3 == HIGH) {
+        process_buton_sag_alt();
+    }
+    if (!control && durum4 == HIGH) {
+        process_buton_sag_ust();
+    }
+}
+
+void process_buton_sol_alt() {
+    tft.fillScreen(ST7735_BLACK);
+    drawCenteredText("buton aktif", ST7735_WHITE, 1);
+    delay(2000);
+    Ekran();
+}
+
+void process_buton_sag_ust() {
+    tft.fillScreen(ST7735_BLACK);
+    drawCenteredText("buton aktif", ST7735_WHITE, 1);
+    delay(2000);
+    Ekran();
+}
+
+void process_buton_sag_alt() {
+    tft.fillScreen(ST7735_BLACK);
+    drawCenteredText("Sbuton aktif", ST7735_WHITE, 1);
+    delay(2000);
+    Ekran();
+}
+
+void processMenu() {
+    menu();
+
+    unsigned long startTime = millis();
+
+    while (millis() - startTime < 20000) {
+        reading = digitalRead(butonpin5);
+        Serial.println(String(count));
+        bool control = guvenlikkontrol();
+
+        if (reading != lastButtonState) {
+            lastDebounceTime = millis();
+        }
+
+        if ((millis() - lastDebounceTime) > debounceDelay) {
+            if (reading != buttonState) {
+                buttonState = reading;
+
+                if (buttonState == HIGH) {
+                    count++;
+                    if(count>3){count=1;}
+                    if (count == 1) {
+                        drawButton(15, 20, 40, 20, "SELECT", ST7735_BLUE);
+                        drawButton(15, 60, 40, 20, "BACK", ST7735_RED);
+                        drawButton(15, 100, 40, 20, "OPTION", ST7735_RED);
+
+                    } else if(count==2) {
+                        drawButton(15, 20, 40, 20, "SELECT", ST7735_RED);
+                        drawButton(15, 60, 40, 20, "BACK", ST7735_BLUE);
+                        drawButton(15, 100,40, 20, "OPTION", ST7735_RED);
+                    
+                    }
+                    else{
+                        drawButton(15, 20, 40, 20, "SELECT", ST7735_RED);
+                        drawButton(15, 60, 40, 20, "BACK", ST7735_RED);
+                        drawButton(15, 100,40, 20, "OPTION", ST7735_BLUE);
+
+                    }
+                    delay(500); // Prevents bouncing effects
+                }
+            }
+        }
+
+        lastButtonState = reading;
+
+        if (control || digitalRead(butonpin3) == HIGH) {
+            break;
+        }
+    }
+
+    Ekran();
+}
+
+void menu() {
+    tft.fillScreen(ST7735_BLACK);
+    drawButton(15, 20, 40, 20, "SELECT", ST7735_RED);
+    drawButton(15, 60, 40, 20, "BACK", ST7735_RED);
+    drawButton(15, 100, 40, 20, "OPTION", ST7735_RED);
+
+}
+
+void drawButton(int x, int y, int width, int height, String name, uint16_t renk) {
+    int buttonX = x;
+    int buttonY = y;
+    int buttonWidth = width;
+    int buttonHeight = height;
+    uint16_t buttonColor = renk;
+    tft.fillRect(buttonX, buttonY, buttonWidth, buttonHeight, buttonColor);
+    tft.drawRect(buttonX, buttonY, buttonWidth, buttonHeight, ST7735_WHITE);
+    tft.setCursor(buttonX + 3, buttonY + 3);
+    tft.setTextColor(ST7735_WHITE);
+    tft.setTextSize(1);
+    tft.print(name);
+}
+
+bool guvenlikkontrol() {
+    int durum2 = digitalRead(butonpin2);
+    int durum3 = digitalRead(butonpin3);
+    int durum4 = digitalRead(butonpin4);
+    int durum = digitalRead(butonpin);
+    Serial.print("durum = "); Serial.print(durum);
+    Serial.print(" durum2 = "); Serial.print(durum2);
+    Serial.print(" durum3 = "); Serial.print(durum3);
+    Serial.print(" durum4 = "); Serial.println(durum4);
+    if(durum==HIGH && durum2==HIGH){
+           unsigned long baslama=millis();
+           unsigned long bitis=0;
+           while(durum==HIGH && durum2==HIGH){
+              int durum2 = digitalRead(butonpin2);
+              int durum3 = digitalRead(butonpin3);
+              int durum4 = digitalRead(butonpin4);
+              int durum = digitalRead(butonpin);
+            if(millis()-baslama>3000){
+             digitalWrite(ledPin, HIGH);
+        guvenlikEkrani();
+        return true;
+            break;}
+            else{ digitalWrite(ledPin, LOW);}}}
+
+    if(durum3==HIGH && durum4==HIGH){
+           unsigned long baslama=millis();
+           unsigned long bitis=0;
+           while(durum3==HIGH && durum4==HIGH){
+              int durum2 = digitalRead(butonpin2);
+              int durum3 = digitalRead(butonpin3);
+              int durum4 = digitalRead(butonpin4);
+              int durum = digitalRead(butonpin);
+            if(millis()-baslama>3000){
+             digitalWrite(ledPin, HIGH);
+        guvenlikEkrani();
+        return true;
+            break;}
+            else{ digitalWrite(ledPin, LOW);}}}
+
+
+
+    else{
+        digitalWrite(ledPin, LOW);  
+return false;}
+
+
+}
+
+void Ekran() {
+    tft.fillScreen(ST7735_BLACK);
+    drawButton(20, 20, 40, 20, "Menu", ST7735_BLUE);
+    drawButton(70, 20, 40, 20, "buton2", ST7735_BLUE);
+    drawButton(20, 70, 40, 20, "buton3", ST7735_BLUE);
+    drawButton(70, 70, 40, 20, "buton4", ST7735_BLUE);
+}
+
+void guvenlikEkrani() {
+    tft.fillScreen(ST7735_BLACK);
+    tft.setTextColor(ST7735_WHITE);
+    tft.setTextWrap(true);
+    tft.setCursor(3, 3);
+    tft.setTextSize(1);
+    tft.print("SECURITY");
+    delay(1000);
+    Ekran();
+}
+
+// Merkezi olarak metni çizmek için fonksiyon
+void drawCenteredText(String text, uint16_t color, int textSize) {
+    int16_t x1, y1;
+    uint16_t w, h;
+
+    tft.setTextWrap(true);
+    tft.setTextSize(textSize);
+    tft.setTextColor(color);
+
+    // Metnin genişliğini ve yüksekliğini hesapla
+    tft.getTextBounds(text, 0, 0, &x1, &y1, &w, &h);
+
+    // Merkezi koordinatları hesapla
+    int16_t x = (tft.width() - w) / 2;
+    int16_t y = (tft.height() - h) / 2;
+
+    // Koordinatları ayarla ve metni yazdır
+    tft.setCursor(x, y);
+    tft.print(text);
+}
